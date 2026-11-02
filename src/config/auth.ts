@@ -23,7 +23,17 @@ function createBetterAuthInstance(db?: Db | null) {
       "http://localhost:3000",
       "http://127.0.0.1:3000",
       "https://studio-space-rho.vercel.app",
+      "https://studio-space-rho.vercel.app/",
     ],
+    advanced: {
+      defaultCookieAttributes: {
+        sameSite: "none",
+        secure: true,
+      },
+    },
+    onAPIError: {
+      errorURL: "https://studio-space-rho.vercel.app/login",
+    },
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 6,
