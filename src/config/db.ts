@@ -39,7 +39,7 @@ export class InMemoryStore {
         _id: "booking_seed_1",
         studioId: "studio_seed_1",
         studioTitle: "Apex Daylight Infinity Cyc & Soundstage",
-        studioImage: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80",
+        studioImage: "https://images.unsplash.com/photo-1736580602204-b940bb0423ec?auto=format&fit=crop&w=600&q=80",
         renterEmail: "creator.examiner@studiospace.io",
         renterName: "Marcus Sterling",
         ownerEmail: "host.examiner@studiospace.io",

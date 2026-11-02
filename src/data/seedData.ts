@@ -28,11 +28,11 @@ export const SEED_STUDIOS: Omit<IStudio, "_id">[] = [
     securityDeposit: 250,
     maxCapacity: 25,
     location: "DUMBO Creative District, Brooklyn, NY",
-    image: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1736580602204-b940bb0423ec?auto=format&fit=crop&w=1200&q=80",
     gallery: [
-      "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1582533561751-ef6f6ab93a2e?auto=format&fit=crop&w=1200&q=80"
+      "https://images.unsplash.com/photo-1736580602204-b940bb0423ec?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1768818928341-3b31b8965c6d?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1791056574617-6f2c0c570352?auto=format&fit=crop&w=1200&q=80"
     ],
     amenities: [
       "24ft Seamless White Cyclorama",
