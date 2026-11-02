@@ -77,7 +77,24 @@ export function createApp(): Express {
   // 7. Cookie Parser for HTTPOnly JWT sessions
   app.use(cookieParser());
 
-  // Health check endpoint
+  // Root & Health check endpoints
+  app.get("/", (_req, res) => {
+    res.status(200).json({
+      status: "healthy",
+      service: "StudioSpace Backend API",
+      environment: process.env.NODE_ENV || "production",
+      authEngine: "BetterAuth + MongoDB Atlas + JWT",
+      endpoints: {
+        health: "/health",
+        api: "/api",
+        studios: "/api/studios",
+        auth: "/api/auth",
+        bookings: "/api/bookings",
+        wishlist: "/api/wishlist",
+      },
+    });
+  });
+
   app.get("/health", (_req, res) => {
     res.status(200).json({
       status: "healthy",

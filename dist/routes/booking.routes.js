@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const booking_controller_js_1 = require("../controllers/booking.controller.js");
+const auth_js_1 = require("../middleware/auth.js");
+const rateLimiter_js_1 = require("../middleware/rateLimiter.js");
+const validate_js_1 = require("../middleware/validate.js");
+const router = (0, express_1.Router)();
+router.get("/studio/:studioId", booking_controller_js_1.getStudioBookings);
+router.post("/", auth_js_1.requireAuth, rateLimiter_js_1.mutationLimiter, (0, validate_js_1.validateBody)(validate_js_1.bookingSchema), booking_controller_js_1.createBooking);
+router.get("/my-bookings", auth_js_1.requireAuth, booking_controller_js_1.getMyBookings);
+router.patch("/:id/cancel", auth_js_1.requireAuth, booking_controller_js_1.cancelBooking);
+exports.default = router;
