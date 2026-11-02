@@ -5,7 +5,8 @@ import cookieParser from "cookie-parser";
 import compression from "compression";
 import { toNodeHandler } from "better-auth/node";
 import { ENV } from "./config/env.js";
-import { getAuth } from "./config/auth.js";
+import { getAuth, reinitAuthWithDb } from "./config/auth.js";
+import { connectDB, isDbConnected } from "./config/db.js";
 import authRoutes from "./routes/auth.routes.js";
 import studioRoutes from "./routes/studio.routes.js";
 import bookingRoutes from "./routes/booking.routes.js";
@@ -15,6 +16,21 @@ import { generalLimiter } from "./middleware/rateLimiter.js";
 
 export function createApp(): Express {
   const app = express();
+
+  // 0. Auto-connect MongoDB in serverless environments
+  app.use(async (_req, _res, next) => {
+    try {
+      if (!isDbConnected() && ENV.MONGODB_URI) {
+        const db = await connectDB();
+        if (db) {
+          reinitAuthWithDb(db);
+        }
+      }
+    } catch (err: any) {
+      console.warn("Atlas DB notice:", err?.message);
+    }
+    next();
+  });
 
   // 1. HTTP Security Headers with Helmet
   app.use(

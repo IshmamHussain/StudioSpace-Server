@@ -12,6 +12,7 @@ const compression_1 = __importDefault(require("compression"));
 const node_1 = require("better-auth/node");
 const env_js_1 = require("./config/env.js");
 const auth_js_1 = require("./config/auth.js");
+const db_js_1 = require("./config/db.js");
 const auth_routes_js_1 = __importDefault(require("./routes/auth.routes.js"));
 const studio_routes_js_1 = __importDefault(require("./routes/studio.routes.js"));
 const booking_routes_js_1 = __importDefault(require("./routes/booking.routes.js"));
@@ -20,6 +21,21 @@ const error_js_1 = require("./middleware/error.js");
 const rateLimiter_js_1 = require("./middleware/rateLimiter.js");
 function createApp() {
     const app = (0, express_1.default)();
+    // 0. Auto-connect MongoDB in serverless environments
+    app.use(async (_req, _res, next) => {
+        try {
+            if (!(0, db_js_1.isDbConnected)() && env_js_1.ENV.MONGODB_URI) {
+                const db = await (0, db_js_1.connectDB)();
+                if (db) {
+                    (0, auth_js_1.reinitAuthWithDb)(db);
+                }
+            }
+        }
+        catch (err) {
+            console.warn("Atlas DB notice:", err?.message);
+        }
+        next();
+    });
     // 1. HTTP Security Headers with Helmet
     app.use((0, helmet_1.default)({
         crossOriginResourcePolicy: { policy: "cross-origin" },
