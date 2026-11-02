@@ -5,7 +5,14 @@ const createRateLimiter = (options: any) => {
     ? (rateLimit as any)
     : (rateLimit as any)?.default || (rateLimit as any)?.rateLimit;
   if (typeof limiterFn === "function") {
-    return limiterFn(options);
+    return limiterFn({
+      ...options,
+      validate: {
+        xForwardedForHeader: false,
+        forwardedHeader: false,
+        default: false,
+      },
+    });
   }
   return (_req: any, _res: any, next: any) => next();
 };

@@ -15,6 +15,8 @@ import { notFoundHandler, globalErrorHandler } from "./middleware/error.js";
 import { generalLimiter } from "./middleware/rateLimiter.js";
 export function createApp() {
     const app = express();
+    // Trust proxy for reverse proxy environments (Vercel, AWS Lambda, Cloudflare)
+    app.set("trust proxy", 1);
     // 0. Auto-connect MongoDB in serverless environments
     app.use(async (_req, _res, next) => {
         try {
@@ -144,3 +146,5 @@ export function createApp() {
     app.use(globalErrorHandler);
     return app;
 }
+const defaultApp = createApp();
+export default defaultApp;
