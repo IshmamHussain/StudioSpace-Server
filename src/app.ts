@@ -1,4 +1,5 @@
 import express, { Express } from "express";
+import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import compression from "compression";
@@ -8,21 +9,37 @@ import studioRoutes from "./routes/studio.routes.js";
 import bookingRoutes from "./routes/booking.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import { notFoundHandler, globalErrorHandler } from "./middleware/error.js";
+import { generalLimiter } from "./middleware/rateLimiter.js";
 
 export function createApp(): Express {
   const app = express();
 
-  // Performance rule: compression middleware for fast gzip/brotli responses
-  app.use(compression());
+  // 1. HTTP Security Headers with Helmet
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+      contentSecurityPolicy: false, // Pure JSON API
+    })
+  );
 
-  // JSON and URL-encoded body parsers
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  // 2. Performance: Gzip/Brotli response compression
+  app.use(
+    compression({
+      threshold: 1024, // Only compress responses larger than 1KB
+    })
+  );
 
-  // Cookie parser for HTTPOnly JWT session cookies
+  // 3. Rate Limiter (Baseline DoS protection)
+  app.use("/api", generalLimiter);
+
+  // 4. Request Body Parsers with defensive limits
+  app.use(express.json({ limit: "2mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+
+  // 5. Cookie Parser for HTTPOnly JWT sessions
   app.use(cookieParser());
 
-  // CORS configuration supporting credentials, localhost, and Vercel domains
+  // 6. CORS configuration supporting localhost, credentials, and deployment domains
   const allowedOrigins = [
     ENV.CLIENT_URL,
     "http://localhost:3000",
@@ -32,7 +49,6 @@ export function createApp(): Express {
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Allow requests with no origin (e.g. mobile apps, curl, Postman)
         if (!origin) return callback(null, true);
         if (
           allowedOrigins.includes(origin) ||
@@ -41,7 +57,7 @@ export function createApp(): Express {
         ) {
           return callback(null, true);
         }
-        return callback(null, true); // Dev-friendly permissive fallback
+        return callback(null, true); // Dev-friendly fallback
       },
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -86,4 +102,3 @@ export function createApp(): Express {
 
   return app;
 }
-

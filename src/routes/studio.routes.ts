@@ -8,18 +8,33 @@ import {
   getMyListings,
 } from "../controllers/studio.controller.js";
 import { requireAuth } from "../middleware/auth.js";
+import { mutationLimiter } from "../middleware/rateLimiter.js";
+import { validateBody, studioSchema } from "../middleware/validate.js";
 
 const router = Router();
 
-// Public routes
+// Public queries
 router.get("/", getAllStudios);
 router.get("/my-listings", requireAuth, getMyListings);
 router.get("/:id", getStudioById);
 
-// Protected routes (HTTPOnly JWT mutation guard)
-router.post("/", requireAuth, createStudio);
-router.put("/:id", requireAuth, updateStudio);
-router.delete("/:id", requireAuth, deleteStudio);
+// Protected mutations
+router.post(
+  "/",
+  requireAuth,
+  mutationLimiter,
+  validateBody(studioSchema),
+  createStudio
+);
+
+router.put(
+  "/:id",
+  requireAuth,
+  mutationLimiter,
+  validateBody(studioSchema.partial()),
+  updateStudio
+);
+
+router.delete("/:id", requireAuth, mutationLimiter, deleteStudio);
 
 export default router;
-
