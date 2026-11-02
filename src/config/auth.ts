@@ -15,11 +15,14 @@ function createBetterAuthInstance(db?: Db | null) {
   return betterAuth({
     database: adapter,
     secret: ENV.JWT_SECRET || "studiospace_secure_betterauth_jwt_secret_token_2026",
-    baseURL: "http://localhost:5000",
+    baseURL:
+      process.env.BETTER_AUTH_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:5000"),
     trustedOrigins: [
       ENV.CLIENT_URL,
       "http://localhost:3000",
       "http://127.0.0.1:3000",
+      "https://studio-space-rho.vercel.app",
     ],
     emailAndPassword: {
       enabled: true,
