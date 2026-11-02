@@ -2,7 +2,7 @@
 
 High-Performance Backend API for StudioSpace — The Peer-to-Peer Marketplace for Creators, Filmmakers, Photographers, Podcasters, and Audio Engineers.
 
-- **Live Frontend URL:** `https://studiospace-client.vercel.app` *(Update with your deployed Vercel URL)*
+- **Live Frontend URL:** `https://studio-space-rho.vercel.app` *(Production Vercel Deployment)*
 - **Live API Endpoint:** `https://studiospace-server.onrender.com` *(Update with your deployed Backend URL)*
 
 ---
