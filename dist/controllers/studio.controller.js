@@ -1,19 +1,11 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllStudios = getAllStudios;
-exports.getStudioById = getStudioById;
-exports.createStudio = createStudio;
-exports.updateStudio = updateStudio;
-exports.deleteStudio = deleteStudio;
-exports.getMyListings = getMyListings;
-const mongodb_1 = require("mongodb");
-const db_js_1 = require("../config/db.js");
-async function getAllStudios(req, res) {
+import { ObjectId } from "mongodb";
+import { getDB, isDbConnected, inMemoryStore } from "../config/db.js";
+export async function getAllStudios(req, res) {
     try {
         const { category, search, limit, sort } = req.query;
         const limitNum = limit ? parseInt(limit, 10) : 0;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             const query = {};
             if (category && category !== "All") {
                 query.category = category;
@@ -47,7 +39,7 @@ async function getAllStudios(req, res) {
             return;
         }
         // In-memory fallback
-        let filtered = [...db_js_1.inMemoryStore.studios];
+        let filtered = [...inMemoryStore.studios];
         if (category && category !== "All") {
             filtered = filtered.filter(s => s.category.toLowerCase() === category.toLowerCase());
         }
@@ -83,14 +75,14 @@ async function getAllStudios(req, res) {
         res.status(500).json({ success: false, message: error.message || "Failed to fetch studios." });
     }
 }
-async function getStudioById(req, res) {
+export async function getStudioById(req, res) {
     try {
         const { id } = req.params;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             let query = {};
-            if (mongodb_1.ObjectId.isValid(id)) {
-                query = { _id: new mongodb_1.ObjectId(id) };
+            if (ObjectId.isValid(id)) {
+                query = { _id: new ObjectId(id) };
             }
             else {
                 query = { _id: id };
@@ -106,7 +98,7 @@ async function getStudioById(req, res) {
             });
             return;
         }
-        const studio = db_js_1.inMemoryStore.studios.find(s => s._id.toString() === id);
+        const studio = inMemoryStore.studios.find(s => s._id.toString() === id);
         if (!studio) {
             res.status(404).json({ success: false, message: "Studio workspace not found." });
             return;
@@ -120,7 +112,7 @@ async function getStudioById(req, res) {
         res.status(500).json({ success: false, message: error.message || "Failed to fetch studio details." });
     }
 }
-async function createStudio(req, res) {
+export async function createStudio(req, res) {
     try {
         const user = req.user;
         const { title, category, hourlyRate, securityDeposit, maxCapacity, location, image, gallery, amenities, overview, } = req.body;
@@ -149,8 +141,8 @@ async function createStudio(req, res) {
             createdAt: new Date(),
             updatedAt: new Date(),
         };
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             const result = await db.collection("studios").insertOne(newStudio);
             res.status(201).json({
                 success: true,
@@ -161,7 +153,7 @@ async function createStudio(req, res) {
         }
         const id = `studio_${Date.now()}`;
         const saved = { ...newStudio, _id: id };
-        db_js_1.inMemoryStore.studios.unshift(saved);
+        inMemoryStore.studios.unshift(saved);
         res.status(201).json({
             success: true,
             message: "Studio listed successfully! Welcome to the StudioSpace host network.",
@@ -172,7 +164,7 @@ async function createStudio(req, res) {
         res.status(500).json({ success: false, message: error.message || "Failed to create studio listing." });
     }
 }
-async function updateStudio(req, res) {
+export async function updateStudio(req, res) {
     try {
         const { id } = req.params;
         const user = req.user;
@@ -182,11 +174,11 @@ async function updateStudio(req, res) {
         delete updates.ownerEmail;
         delete updates.ownerName;
         updates.updatedAt = new Date();
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             let query = {};
-            if (mongodb_1.ObjectId.isValid(id)) {
-                query = { _id: new mongodb_1.ObjectId(id) };
+            if (ObjectId.isValid(id)) {
+                query = { _id: new ObjectId(id) };
             }
             else {
                 query = { _id: id };
@@ -215,12 +207,12 @@ async function updateStudio(req, res) {
             });
             return;
         }
-        const idx = db_js_1.inMemoryStore.studios.findIndex(s => s._id.toString() === id);
+        const idx = inMemoryStore.studios.findIndex(s => s._id.toString() === id);
         if (idx === -1) {
             res.status(404).json({ success: false, message: "Studio not found." });
             return;
         }
-        const existing = db_js_1.inMemoryStore.studios[idx];
+        const existing = inMemoryStore.studios[idx];
         if (existing.ownerEmail !== user.email && user.role !== "admin") {
             res.status(403).json({ success: false, message: "Forbidden: You are not the owner of this studio listing." });
             return;
@@ -233,7 +225,7 @@ async function updateStudio(req, res) {
             maxCapacity: updates.maxCapacity ? Number(updates.maxCapacity) : existing.maxCapacity,
             updatedAt: new Date(),
         };
-        db_js_1.inMemoryStore.studios[idx] = updated;
+        inMemoryStore.studios[idx] = updated;
         res.status(200).json({
             success: true,
             message: "Studio specifications updated successfully.",
@@ -244,15 +236,15 @@ async function updateStudio(req, res) {
         res.status(500).json({ success: false, message: error.message || "Failed to update studio listing." });
     }
 }
-async function deleteStudio(req, res) {
+export async function deleteStudio(req, res) {
     try {
         const { id } = req.params;
         const user = req.user;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             let query = {};
-            if (mongodb_1.ObjectId.isValid(id)) {
-                query = { _id: new mongodb_1.ObjectId(id) };
+            if (ObjectId.isValid(id)) {
+                query = { _id: new ObjectId(id) };
             }
             else {
                 query = { _id: id };
@@ -273,17 +265,17 @@ async function deleteStudio(req, res) {
             });
             return;
         }
-        const idx = db_js_1.inMemoryStore.studios.findIndex(s => s._id.toString() === id);
+        const idx = inMemoryStore.studios.findIndex(s => s._id.toString() === id);
         if (idx === -1) {
             res.status(404).json({ success: false, message: "Studio listing not found." });
             return;
         }
-        const existing = db_js_1.inMemoryStore.studios[idx];
+        const existing = inMemoryStore.studios[idx];
         if (existing.ownerEmail !== user.email && user.role !== "admin") {
             res.status(403).json({ success: false, message: "Forbidden: You do not have permission to delete this studio." });
             return;
         }
-        db_js_1.inMemoryStore.studios.splice(idx, 1);
+        inMemoryStore.studios.splice(idx, 1);
         res.status(200).json({
             success: true,
             message: "Studio listing has been permanently removed from the marketplace.",
@@ -293,11 +285,11 @@ async function deleteStudio(req, res) {
         res.status(500).json({ success: false, message: error.message || "Failed to delete studio listing." });
     }
 }
-async function getMyListings(req, res) {
+export async function getMyListings(req, res) {
     try {
         const user = req.user;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             const listings = await db.collection("studios").find({ ownerEmail: user.email }).sort({ createdAt: -1 }).toArray();
             res.status(200).json({
                 success: true,
@@ -306,7 +298,7 @@ async function getMyListings(req, res) {
             });
             return;
         }
-        const listings = db_js_1.inMemoryStore.studios.filter(s => s.ownerEmail === user.email);
+        const listings = inMemoryStore.studios.filter(s => s.ownerEmail === user.email);
         res.status(200).json({
             success: true,
             count: listings.length,

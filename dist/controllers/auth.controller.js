@@ -1,19 +1,8 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.validatePassword = validatePassword;
-exports.register = register;
-exports.login = login;
-exports.googleAuth = googleAuth;
-exports.getMe = getMe;
-exports.logout = logout;
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
-const db_js_1 = require("../config/db.js");
-const auth_js_1 = require("../middleware/auth.js");
+import bcrypt from "bcryptjs";
+import { getDB, isDbConnected, inMemoryStore } from "../config/db.js";
+import { signToken, setAuthCookie, clearAuthCookie } from "../middleware/auth.js";
 // Password validation: min 6 chars, 1 uppercase, 1 lowercase
-function validatePassword(password) {
+export function validatePassword(password) {
     if (!password || password.length < 6) {
         return { valid: false, message: "Password must be at least 6 characters long." };
     }
@@ -25,7 +14,7 @@ function validatePassword(password) {
     }
     return { valid: true };
 }
-async function register(req, res) {
+export async function register(req, res) {
     try {
         const { name, email, photoURL, password } = req.body;
         if (!name || !email || !password) {
@@ -39,14 +28,14 @@ async function register(req, res) {
         }
         const normalizedEmail = email.toLowerCase().trim();
         const avatar = photoURL?.trim() || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             const existing = await db.collection("users").findOne({ email: normalizedEmail });
             if (existing) {
                 res.status(409).json({ success: false, message: "An account with this email address already exists." });
                 return;
             }
-            const hashedPassword = await bcryptjs_1.default.hash(password, 10);
+            const hashedPassword = await bcrypt.hash(password, 10);
             const newUser = {
                 name: name.trim(),
                 email: normalizedEmail,
@@ -65,14 +54,14 @@ async function register(req, res) {
         }
         else {
             // In-memory fallback
-            const existing = db_js_1.inMemoryStore.users.find(u => u.email === normalizedEmail);
+            const existing = inMemoryStore.users.find(u => u.email === normalizedEmail);
             if (existing) {
                 res.status(409).json({ success: false, message: "An account with this email address already exists." });
                 return;
             }
-            const hashedPassword = await bcryptjs_1.default.hash(password, 10);
+            const hashedPassword = await bcrypt.hash(password, 10);
             const id = `user_${Date.now()}`;
-            db_js_1.inMemoryStore.users.push({
+            inMemoryStore.users.push({
                 _id: id,
                 name: name.trim(),
                 email: normalizedEmail,
@@ -92,7 +81,7 @@ async function register(req, res) {
         res.status(500).json({ success: false, message: error.message || "Failed to register user." });
     }
 }
-async function login(req, res) {
+export async function login(req, res) {
     try {
         const { email, password } = req.body;
         if (!email || !password) {
@@ -101,18 +90,18 @@ async function login(req, res) {
         }
         const normalizedEmail = email.toLowerCase().trim();
         let user = null;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             user = await db.collection("users").findOne({ email: normalizedEmail });
         }
         else {
-            user = db_js_1.inMemoryStore.users.find(u => u.email === normalizedEmail);
+            user = inMemoryStore.users.find(u => u.email === normalizedEmail);
         }
         if (!user || !user.password) {
             res.status(401).json({ success: false, message: "Invalid email or password." });
             return;
         }
-        const isMatch = await bcryptjs_1.default.compare(password, user.password);
+        const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             res.status(401).json({ success: false, message: "Invalid email or password." });
             return;
@@ -124,8 +113,8 @@ async function login(req, res) {
             name: user.name,
             role: user.role || "creator",
         };
-        const token = (0, auth_js_1.signToken)(payload);
-        (0, auth_js_1.setAuthCookie)(res, token);
+        const token = signToken(payload);
+        setAuthCookie(res, token);
         res.status(200).json({
             success: true,
             message: "Login successful! Welcome back.",
@@ -143,7 +132,7 @@ async function login(req, res) {
         res.status(500).json({ success: false, message: error.message || "Failed to authenticate." });
     }
 }
-async function googleAuth(req, res) {
+export async function googleAuth(req, res) {
     try {
         const { name, email, photoURL } = req.body;
         if (!email) {
@@ -154,8 +143,8 @@ async function googleAuth(req, res) {
         const displayName = name?.trim() || normalizedEmail.split("@")[0];
         const avatar = photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
         let user = null;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             user = await db.collection("users").findOne({ email: normalizedEmail });
             if (!user) {
                 const newUser = {
@@ -170,7 +159,7 @@ async function googleAuth(req, res) {
             }
         }
         else {
-            user = db_js_1.inMemoryStore.users.find(u => u.email === normalizedEmail);
+            user = inMemoryStore.users.find(u => u.email === normalizedEmail);
             if (!user) {
                 user = {
                     _id: `user_google_${Date.now()}`,
@@ -180,7 +169,7 @@ async function googleAuth(req, res) {
                     role: "creator",
                     createdAt: new Date(),
                 };
-                db_js_1.inMemoryStore.users.push(user);
+                inMemoryStore.users.push(user);
             }
         }
         const userId = user._id.toString();
@@ -190,8 +179,8 @@ async function googleAuth(req, res) {
             name: user.name,
             role: user.role || "creator",
         };
-        const token = (0, auth_js_1.signToken)(payload);
-        (0, auth_js_1.setAuthCookie)(res, token);
+        const token = signToken(payload);
+        setAuthCookie(res, token);
         res.status(200).json({
             success: true,
             message: "Successfully signed in with Google!",
@@ -209,19 +198,19 @@ async function googleAuth(req, res) {
         res.status(500).json({ success: false, message: error.message || "Google authentication failed." });
     }
 }
-async function getMe(req, res) {
+export async function getMe(req, res) {
     try {
         if (!req.user) {
             res.status(401).json({ success: false, message: "Not authenticated" });
             return;
         }
         let user = null;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             user = await db.collection("users").findOne({ email: req.user.email });
         }
         else {
-            user = db_js_1.inMemoryStore.users.find(u => u.email === req.user.email);
+            user = inMemoryStore.users.find(u => u.email === req.user.email);
         }
         if (!user) {
             // Fallback to token payload
@@ -252,8 +241,8 @@ async function getMe(req, res) {
         res.status(500).json({ success: false, message: error.message || "Failed to fetch session." });
     }
 }
-async function logout(_req, res) {
-    (0, auth_js_1.clearAuthCookie)(res);
+export async function logout(_req, res) {
+    clearAuthCookie(res);
     res.status(200).json({
         success: true,
         message: "Logged out successfully.",

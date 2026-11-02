@@ -1,22 +1,12 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.inMemoryStore = exports.InMemoryStore = void 0;
-exports.connectDB = connectDB;
-exports.getDB = getDB;
-exports.isDbConnected = isDbConnected;
-exports.closeDB = closeDB;
-const mongodb_1 = require("mongodb");
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
-const env_js_1 = require("./env.js");
-const seedData_js_1 = require("../data/seedData.js");
+import { MongoClient } from "mongodb";
+import bcrypt from "bcryptjs";
+import { ENV } from "./env.js";
+import { SEED_STUDIOS, SEED_USERS } from "../data/seedData.js";
 let client = null;
 let db = null;
 let isConnected = false;
 // Resilient in-memory fallback store
-class InMemoryStore {
+export class InMemoryStore {
     users = [];
     studios = [];
     bookings = [];
@@ -25,13 +15,13 @@ class InMemoryStore {
         this.seedInitial();
     }
     seedInitial() {
-        const hashedPassword = bcryptjs_1.default.hashSync("StudioSpace2026!", 10);
-        this.users = seedData_js_1.SEED_USERS.map((user, idx) => ({
+        const hashedPassword = bcrypt.hashSync("StudioSpace2026!", 10);
+        this.users = SEED_USERS.map((user, idx) => ({
             ...user,
             _id: `user_seed_${idx + 1}`,
             password: hashedPassword,
         }));
-        this.studios = seedData_js_1.SEED_STUDIOS.map((studio, idx) => ({
+        this.studios = SEED_STUDIOS.map((studio, idx) => ({
             ...studio,
             _id: `studio_seed_${idx + 1}`,
         }));
@@ -91,14 +81,13 @@ class InMemoryStore {
         ];
     }
 }
-exports.InMemoryStore = InMemoryStore;
-exports.inMemoryStore = new InMemoryStore();
-async function connectDB() {
+export const inMemoryStore = new InMemoryStore();
+export async function connectDB() {
     if (db && isConnected)
         return db;
     try {
         console.log("📡 Attempting connection to MongoDB Atlas...");
-        client = new mongodb_1.MongoClient(env_js_1.ENV.MONGODB_URI, {
+        client = new MongoClient(ENV.MONGODB_URI, {
             serverSelectionTimeoutMS: 5000,
             connectTimeoutMS: 7000,
         });
@@ -122,13 +111,13 @@ async function autoSeedAtlas(database) {
         const studiosCount = await database.collection("studios").countDocuments();
         if (studiosCount === 0) {
             console.log("🌱 Auto-seeding MongoDB Atlas with initial high-fidelity studios dataset...");
-            await database.collection("studios").insertMany(seedData_js_1.SEED_STUDIOS);
-            console.log(`✅ Seeded ${seedData_js_1.SEED_STUDIOS.length} creative studios into Atlas collection!`);
+            await database.collection("studios").insertMany(SEED_STUDIOS);
+            console.log(`✅ Seeded ${SEED_STUDIOS.length} creative studios into Atlas collection!`);
         }
         const usersCount = await database.collection("users").countDocuments();
         if (usersCount === 0) {
-            const hashedPassword = await bcryptjs_1.default.hash("StudioSpace2026!", 10);
-            const usersToInsert = seedData_js_1.SEED_USERS.map(u => ({ ...u, password: hashedPassword }));
+            const hashedPassword = await bcrypt.hash("StudioSpace2026!", 10);
+            const usersToInsert = SEED_USERS.map(u => ({ ...u, password: hashedPassword }));
             await database.collection("users").insertMany(usersToInsert);
             console.log("✅ Seeded initial accounts into Atlas users collection!");
         }
@@ -137,13 +126,13 @@ async function autoSeedAtlas(database) {
         console.warn("Notice during Atlas seeding:", err.message);
     }
 }
-function getDB() {
+export function getDB() {
     return db;
 }
-function isDbConnected() {
+export function isDbConnected() {
     return isConnected;
 }
-async function closeDB() {
+export async function closeDB() {
     if (client) {
         await client.close();
         isConnected = false;

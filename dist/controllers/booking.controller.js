@@ -1,20 +1,13 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.doTimesOverlap = doTimesOverlap;
-exports.createBooking = createBooking;
-exports.getMyBookings = getMyBookings;
-exports.cancelBooking = cancelBooking;
-exports.getStudioBookings = getStudioBookings;
-const mongodb_1 = require("mongodb");
-const db_js_1 = require("../config/db.js");
+import { ObjectId } from "mongodb";
+import { getDB, isDbConnected, inMemoryStore } from "../config/db.js";
 /**
  * Checks whether two time windows [s1, e1) and [s2, e2) overlap on the same date.
  * Assumes format "HH:MM".
  */
-function doTimesOverlap(s1, e1, s2, e2) {
+export function doTimesOverlap(s1, e1, s2, e2) {
     return s1 < e2 && e1 > s2;
 }
-async function createBooking(req, res) {
+export async function createBooking(req, res) {
     try {
         const user = req.user;
         const { studioId, bookingDate, startTime, endTime, notes, } = req.body;
@@ -34,11 +27,11 @@ async function createBooking(req, res) {
         }
         // 1. Fetch Studio to get current hourly rate, security deposit, owner info
         let studio = null;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             let query = {};
-            if (mongodb_1.ObjectId.isValid(studioId)) {
-                query = { _id: new mongodb_1.ObjectId(studioId) };
+            if (ObjectId.isValid(studioId)) {
+                query = { _id: new ObjectId(studioId) };
             }
             else {
                 query = { _id: studioId };
@@ -46,7 +39,7 @@ async function createBooking(req, res) {
             studio = await db.collection("studios").findOne(query);
         }
         else {
-            studio = db_js_1.inMemoryStore.studios.find(s => s._id.toString() === studioId);
+            studio = inMemoryStore.studios.find(s => s._id.toString() === studioId);
         }
         if (!studio) {
             res.status(404).json({ success: false, message: "Studio workspace does not exist." });
@@ -54,11 +47,11 @@ async function createBooking(req, res) {
         }
         // 2. Interval collision check: prevent overlapping confirmed reservations
         // Check against existing "Confirmed" bookings for the exact same studio and date
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             let studioQueryId = studioId;
-            if (mongodb_1.ObjectId.isValid(studioId)) {
-                studioQueryId = new mongodb_1.ObjectId(studioId);
+            if (ObjectId.isValid(studioId)) {
+                studioQueryId = new ObjectId(studioId);
             }
             const collision = await db.collection("bookings").findOne({
                 $or: [{ studioId: studioQueryId }, { studioId: studioId }],
@@ -77,7 +70,7 @@ async function createBooking(req, res) {
         }
         else {
             // In-memory collision check
-            const collision = db_js_1.inMemoryStore.bookings.find(b => b.studioId.toString() === studioId &&
+            const collision = inMemoryStore.bookings.find(b => b.studioId.toString() === studioId &&
                 b.bookingDate === bookingDate &&
                 b.status === "Confirmed" &&
                 doTimesOverlap(b.startTime, b.endTime, startTime, endTime));
@@ -118,8 +111,8 @@ async function createBooking(req, res) {
             notes: notes?.trim() || "",
             createdAt: new Date(),
         };
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             const result = await db.collection("bookings").insertOne(newBooking);
             res.status(201).json({
                 success: true,
@@ -130,7 +123,7 @@ async function createBooking(req, res) {
         }
         const id = `booking_${Date.now()}`;
         const saved = { ...newBooking, _id: id };
-        db_js_1.inMemoryStore.bookings.unshift(saved);
+        inMemoryStore.bookings.unshift(saved);
         res.status(201).json({
             success: true,
             message: "Studio booking request submitted successfully! Status: Pending host review.",
@@ -141,11 +134,11 @@ async function createBooking(req, res) {
         res.status(500).json({ success: false, message: error.message || "Failed to process studio booking." });
     }
 }
-async function getMyBookings(req, res) {
+export async function getMyBookings(req, res) {
     try {
         const user = req.user;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             const bookings = await db
                 .collection("bookings")
                 .find({ renterEmail: user.email })
@@ -158,7 +151,7 @@ async function getMyBookings(req, res) {
             });
             return;
         }
-        const userBookings = db_js_1.inMemoryStore.bookings.filter(b => b.renterEmail === user.email);
+        const userBookings = inMemoryStore.bookings.filter(b => b.renterEmail === user.email);
         res.status(200).json({
             success: true,
             count: userBookings.length,
@@ -169,15 +162,15 @@ async function getMyBookings(req, res) {
         res.status(500).json({ success: false, message: error.message || "Failed to fetch bookings." });
     }
 }
-async function cancelBooking(req, res) {
+export async function cancelBooking(req, res) {
     try {
         const { id } = req.params;
         const user = req.user;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             let query = {};
-            if (mongodb_1.ObjectId.isValid(id)) {
-                query = { _id: new mongodb_1.ObjectId(id) };
+            if (ObjectId.isValid(id)) {
+                query = { _id: new ObjectId(id) };
             }
             else {
                 query = { _id: id };
@@ -205,7 +198,7 @@ async function cancelBooking(req, res) {
             });
             return;
         }
-        const booking = db_js_1.inMemoryStore.bookings.find(b => b._id.toString() === id);
+        const booking = inMemoryStore.bookings.find(b => b._id.toString() === id);
         if (!booking) {
             res.status(404).json({ success: false, message: "Booking record not found." });
             return;
@@ -232,14 +225,14 @@ async function cancelBooking(req, res) {
         res.status(500).json({ success: false, message: error.message || "Failed to cancel booking." });
     }
 }
-async function getStudioBookings(req, res) {
+export async function getStudioBookings(req, res) {
     try {
         const { studioId } = req.params;
-        if ((0, db_js_1.isDbConnected)() && (0, db_js_1.getDB)()) {
-            const db = (0, db_js_1.getDB)();
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
             let studioQueryId = studioId;
-            if (mongodb_1.ObjectId.isValid(studioId)) {
-                studioQueryId = new mongodb_1.ObjectId(studioId);
+            if (ObjectId.isValid(studioId)) {
+                studioQueryId = new ObjectId(studioId);
             }
             const bookings = await db
                 .collection("bookings")
@@ -255,7 +248,7 @@ async function getStudioBookings(req, res) {
             });
             return;
         }
-        const bookings = db_js_1.inMemoryStore.bookings
+        const bookings = inMemoryStore.bookings
             .filter(b => b.studioId.toString() === studioId && (b.status === "Pending" || b.status === "Confirmed"))
             .map(b => ({
             _id: b._id,

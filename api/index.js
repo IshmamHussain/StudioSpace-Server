@@ -1,5 +1,5 @@
-const { createApp } = require("../dist/app.js");
+import { createApp } from "../dist/app.js";
 
 const app = createApp();
 
-module.exports = app;
+export default app;

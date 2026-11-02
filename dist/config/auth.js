@@ -1,24 +1,20 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAuth = getAuth;
-exports.reinitAuthWithDb = reinitAuthWithDb;
-const better_auth_1 = require("better-auth");
-const mongodb_1 = require("better-auth/adapters/mongodb");
-const memory_1 = require("better-auth/adapters/memory");
-const plugins_1 = require("better-auth/plugins");
-const db_js_1 = require("./db.js");
-const env_js_1 = require("./env.js");
+import { betterAuth } from "better-auth";
+import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { memoryAdapter } from "better-auth/adapters/memory";
+import { jwt } from "better-auth/plugins";
+import { getDB } from "./db.js";
+import { ENV } from "./env.js";
 let authInstance = null;
 function createBetterAuthInstance(db) {
-    const database = db || (0, db_js_1.getDB)();
-    const adapter = database ? (0, mongodb_1.mongodbAdapter)(database) : (0, memory_1.memoryAdapter)({});
-    return (0, better_auth_1.betterAuth)({
+    const database = db || getDB();
+    const adapter = database ? mongodbAdapter(database) : memoryAdapter({});
+    return betterAuth({
         database: adapter,
-        secret: env_js_1.ENV.JWT_SECRET || "studiospace_secure_betterauth_jwt_secret_token_2026",
+        secret: ENV.JWT_SECRET || "studiospace_secure_betterauth_jwt_secret_token_2026",
         baseURL: process.env.BETTER_AUTH_URL ||
             (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:5000"),
         trustedOrigins: [
-            env_js_1.ENV.CLIENT_URL,
+            ENV.CLIENT_URL,
             "http://localhost:3000",
             "http://127.0.0.1:3000",
             "https://studio-space-rho.vercel.app",
@@ -47,19 +43,19 @@ function createBetterAuthInstance(db) {
             },
         },
         plugins: [
-            (0, plugins_1.jwt)({
+            jwt({
             // BetterAuth JWT plugin for cross-service tokens and JWKS verification
             }),
         ],
     });
 }
-function getAuth() {
+export function getAuth() {
     if (!authInstance) {
         authInstance = createBetterAuthInstance();
     }
     return authInstance;
 }
-function reinitAuthWithDb(database) {
+export function reinitAuthWithDb(database) {
     authInstance = createBetterAuthInstance(database);
     return authInstance;
 }

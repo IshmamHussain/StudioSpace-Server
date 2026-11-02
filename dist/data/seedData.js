@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SEED_STUDIOS = exports.SEED_USERS = void 0;
-exports.SEED_USERS = [
+export const SEED_USERS = [
     {
         name: "Elena Vance (Studio Host)",
         email: "host.examiner@studiospace.io",
@@ -19,7 +16,7 @@ exports.SEED_USERS = [
         createdAt: new Date("2026-02-01T11:00:00Z"),
     },
 ];
-exports.SEED_STUDIOS = [
+export const SEED_STUDIOS = [
     {
         title: "Apex Daylight Infinity Cyc & Soundstage",
         category: "Photo Studio",

@@ -1,22 +1,20 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const app_js_1 = require("./app.js");
-const db_js_1 = require("./config/db.js");
-const auth_js_1 = require("./config/auth.js");
-const env_js_1 = require("./config/env.js");
+import { createApp } from "./app.js";
+import { connectDB } from "./config/db.js";
+import { reinitAuthWithDb } from "./config/auth.js";
+import { ENV } from "./config/env.js";
 async function bootstrap() {
     // Connect to MongoDB Atlas (or in-memory fallback on connection timeout)
-    const db = await (0, db_js_1.connectDB)();
+    const db = await connectDB();
     if (db) {
-        (0, auth_js_1.reinitAuthWithDb)(db);
+        reinitAuthWithDb(db);
     }
-    const app = (0, app_js_1.createApp)();
-    app.listen(env_js_1.ENV.PORT, () => {
+    const app = createApp();
+    app.listen(ENV.PORT, () => {
         console.log(`
 ╔═════════════════════════════════════════════════════════════════╗
 ║                                                                 ║
 ║   ⚡ STUDIOSPACE BACKEND API SERVER RUNNING                      ║
-║   URL: http://localhost:${env_js_1.ENV.PORT}                                   ║
+║   URL: http://localhost:${ENV.PORT}                                   ║
 ║   Authentication: BetterAuth + MongoDB Adapter + JWT            ║
 ║   Status: Ready for Creative Creators & Hosts                   ║
 ║   Double-Booking Collision Engine: ACTIVE                       ║

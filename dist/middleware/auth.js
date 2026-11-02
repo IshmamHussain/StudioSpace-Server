@@ -1,22 +1,12 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.signToken = signToken;
-exports.setAuthCookie = setAuthCookie;
-exports.clearAuthCookie = clearAuthCookie;
-exports.requireAuth = requireAuth;
-exports.optionalAuth = optionalAuth;
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const node_1 = require("better-auth/node");
-const auth_js_1 = require("../config/auth.js");
-const env_js_1 = require("../config/env.js");
-function signToken(payload) {
-    return jsonwebtoken_1.default.sign(payload, env_js_1.ENV.JWT_SECRET, { expiresIn: "7d" });
+import jwt from "jsonwebtoken";
+import { fromNodeHeaders } from "better-auth/node";
+import { getAuth } from "../config/auth.js";
+import { ENV } from "../config/env.js";
+export function signToken(payload) {
+    return jwt.sign(payload, ENV.JWT_SECRET, { expiresIn: "7d" });
 }
-function setAuthCookie(res, token) {
-    const isProduction = env_js_1.ENV.NODE_ENV === "production";
+export function setAuthCookie(res, token) {
+    const isProduction = ENV.NODE_ENV === "production";
     res.cookie("token", token, {
         httpOnly: true,
         secure: isProduction,
@@ -25,8 +15,8 @@ function setAuthCookie(res, token) {
         path: "/",
     });
 }
-function clearAuthCookie(res) {
-    const isProduction = env_js_1.ENV.NODE_ENV === "production";
+export function clearAuthCookie(res) {
+    const isProduction = ENV.NODE_ENV === "production";
     res.cookie("token", "", {
         httpOnly: true,
         secure: isProduction,
@@ -39,12 +29,12 @@ function clearAuthCookie(res) {
  * Authentication guard using Better Auth session resolution with JWT bearer token support.
  * Rejects unauthorized mutation requests with 401 Unauthorized.
  */
-async function requireAuth(req, res, next) {
-    const auth = (0, auth_js_1.getAuth)();
+export async function requireAuth(req, res, next) {
+    const auth = getAuth();
     try {
         // 1. Resolve session via Better Auth headers
         const session = await auth.api.getSession({
-            headers: (0, node_1.fromNodeHeaders)(req.headers),
+            headers: fromNodeHeaders(req.headers),
         });
         if (session && session.user) {
             req.user = {
@@ -80,7 +70,7 @@ async function requireAuth(req, res, next) {
                 return;
             }
             // Standard fallback verification
-            const decoded = jsonwebtoken_1.default.verify(token, env_js_1.ENV.JWT_SECRET);
+            const decoded = jwt.verify(token, ENV.JWT_SECRET);
             req.user = decoded;
             next();
             return;
@@ -97,11 +87,11 @@ async function requireAuth(req, res, next) {
 /**
  * Optional authentication: attaches user if token/session is valid, but does not block if missing
  */
-async function optionalAuth(req, _res, next) {
-    const auth = (0, auth_js_1.getAuth)();
+export async function optionalAuth(req, _res, next) {
+    const auth = getAuth();
     try {
         const session = await auth.api.getSession({
-            headers: (0, node_1.fromNodeHeaders)(req.headers),
+            headers: fromNodeHeaders(req.headers),
         });
         if (session && session.user) {
             req.user = {
@@ -123,7 +113,7 @@ async function optionalAuth(req, _res, next) {
     }
     if (token) {
         try {
-            const decoded = jsonwebtoken_1.default.verify(token, env_js_1.ENV.JWT_SECRET);
+            const decoded = jwt.verify(token, ENV.JWT_SECRET);
             req.user = decoded;
         }
         catch {
