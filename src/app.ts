@@ -33,19 +33,25 @@ export function createApp(): Express {
   });
 
   // 1. HTTP Security Headers with Helmet
-  app.use(
-    helmet({
-      crossOriginResourcePolicy: { policy: "cross-origin" },
-      contentSecurityPolicy: false, // Pure JSON API
-    })
-  );
+  const helmetFn = typeof (helmet as any) === "function" ? (helmet as any) : (helmet as any)?.default;
+  if (helmetFn) {
+    app.use(
+      helmetFn({
+        crossOriginResourcePolicy: { policy: "cross-origin" },
+        contentSecurityPolicy: false, // Pure JSON API
+      })
+    );
+  }
 
   // 2. Performance: Gzip/Brotli response compression
-  app.use(
-    compression({
-      threshold: 1024, // Only compress responses larger than 1KB
-    })
-  );
+  const compressionFn = typeof (compression as any) === "function" ? (compression as any) : (compression as any)?.default;
+  if (compressionFn) {
+    app.use(
+      compressionFn({
+        threshold: 1024, // Only compress responses larger than 1KB
+      })
+    );
+  }
 
   // 3. CORS configuration supporting localhost, credentials, and deployment domains
   const allowedOrigins = [
@@ -54,24 +60,27 @@ export function createApp(): Express {
     "http://127.0.0.1:3000",
   ];
 
-  app.use(
-    cors({
-      origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        if (
-          allowedOrigins.includes(origin) ||
-          origin.endsWith(".vercel.app") ||
-          origin.includes("localhost")
-        ) {
-          return callback(null, true);
-        }
-        return callback(null, true); // Dev-friendly fallback
-      },
-      credentials: true,
-      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
-    })
-  );
+  const corsFn = typeof (cors as any) === "function" ? (cors as any) : (cors as any)?.default;
+  if (corsFn) {
+    app.use(
+      corsFn({
+        origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+          if (!origin) return callback(null, true);
+          if (
+            allowedOrigins.includes(origin) ||
+            origin.endsWith(".vercel.app") ||
+            origin.includes("localhost")
+          ) {
+            return callback(null, true);
+          }
+          return callback(null, true); // Dev-friendly fallback
+        },
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+      })
+    );
+  }
 
   // 4. Rate Limiter (Baseline DoS protection)
   app.use("/api", generalLimiter);
@@ -91,7 +100,10 @@ export function createApp(): Express {
   app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
   // 7. Cookie Parser for HTTPOnly JWT sessions
-  app.use(cookieParser());
+  const cookieParserFn = typeof (cookieParser as any) === "function" ? (cookieParser as any) : (cookieParser as any)?.default;
+  if (cookieParserFn) {
+    app.use(cookieParserFn());
+  }
 
   // Root & Health check endpoints
   app.get("/", (_req, res) => {
