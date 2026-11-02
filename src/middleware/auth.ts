@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { fromNodeHeaders } from "better-auth/node";
+import { getAuth } from "../config/auth.js";
 import { ENV } from "../config/env.js";
 import { AuthTokenPayload } from "../types/index.js";
 
@@ -38,44 +40,95 @@ export function clearAuthCookie(res: Response): void {
 }
 
 /**
- * Protect server-side mutations by validating JWT stored in HTTPOnly cookie
- * (or Bearer token fallback for testing tools).
- * Rejects unauthorized requests with 401 Unauthorized.
+ * Authentication guard using Better Auth session resolution with JWT bearer token support.
+ * Rejects unauthorized mutation requests with 401 Unauthorized.
  */
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  let token = req.cookies?.token;
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const auth = getAuth();
 
-  // Support Bearer authorization header fallback for Postman / API testers
+  try {
+    // 1. Resolve session via Better Auth headers
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    if (session && session.user) {
+      req.user = {
+        userId: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        role: (session.user as any).role || "creator",
+      };
+      next();
+      return;
+    }
+  } catch {
+    // Continue to check JWT token fallback
+  }
+
+  // 2. Token verification via Better Auth JWT / HTTPOnly Cookie / Bearer header
+  let token = req.cookies?.token;
   if (!token && req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
     token = req.headers.authorization.split(" ")[1];
   }
 
-  if (!token) {
-    res.status(401).json({
-      success: false,
-      message: "Unauthorized: Missing authentication token. Please log in to perform this action.",
-    });
-    return;
+  if (token) {
+    try {
+      // Check using Better Auth JWT verification first
+      const verified = await (auth.api as any).verifyJWT?.({ token }).catch(() => null);
+      if (verified && (verified as any).sub) {
+        req.user = {
+          userId: (verified as any).sub,
+          email: (verified as any).email || "",
+          name: (verified as any).name || "Creator",
+          role: (verified as any).role || "creator",
+        };
+        next();
+        return;
+      }
+
+      // Standard fallback verification
+      const decoded = jwt.verify(token, ENV.JWT_SECRET) as AuthTokenPayload;
+      req.user = decoded;
+      next();
+      return;
+    } catch {
+      // Token invalid
+    }
   }
 
-  try {
-    const decoded = jwt.verify(token, ENV.JWT_SECRET) as AuthTokenPayload;
-    req.user = decoded;
-    next();
-  } catch (error: any) {
-    res.status(401).json({
-      success: false,
-      message: "Unauthorized: Session expired or invalid token. Please log in again.",
-    });
-  }
+  res.status(401).json({
+    success: false,
+    message: "Unauthorized: Missing authentication token or session. Please log in to perform this action.",
+  });
 }
 
 /**
- * Optional authentication: attaches user if token is valid, but does not block if missing
+ * Optional authentication: attaches user if token/session is valid, but does not block if missing
  */
-export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
-  let token = req.cookies?.token;
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  const auth = getAuth();
 
+  try {
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    if (session && session.user) {
+      req.user = {
+        userId: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        role: (session.user as any).role || "creator",
+      };
+      next();
+      return;
+    }
+  } catch {
+    // Ignore error in optional auth
+  }
+
+  let token = req.cookies?.token;
   if (!token && req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
     token = req.headers.authorization.split(" ")[1];
   }
@@ -91,4 +144,3 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
 
   next();
 }
-

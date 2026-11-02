@@ -140,3 +140,4 @@ export const bookingSchema = z.object({
     .regex(/^\d{2}:\d{2}$/, "End time must be in HH:MM format."),
   notes: z.string().trim().max(1000, "Notes cannot exceed 1,000 characters.").optional(),
 });
+

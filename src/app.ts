@@ -3,7 +3,9 @@ import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import compression from "compression";
+import { toNodeHandler } from "better-auth/node";
 import { ENV } from "./config/env.js";
+import { getAuth } from "./config/auth.js";
 import authRoutes from "./routes/auth.routes.js";
 import studioRoutes from "./routes/studio.routes.js";
 import bookingRoutes from "./routes/booking.routes.js";
@@ -29,17 +31,7 @@ export function createApp(): Express {
     })
   );
 
-  // 3. Rate Limiter (Baseline DoS protection)
-  app.use("/api", generalLimiter);
-
-  // 4. Request Body Parsers with defensive limits
-  app.use(express.json({ limit: "2mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "2mb" }));
-
-  // 5. Cookie Parser for HTTPOnly JWT sessions
-  app.use(cookieParser());
-
-  // 6. CORS configuration supporting localhost, credentials, and deployment domains
+  // 3. CORS configuration supporting localhost, credentials, and deployment domains
   const allowedOrigins = [
     ENV.CLIENT_URL,
     "http://localhost:3000",
@@ -65,11 +57,32 @@ export function createApp(): Express {
     })
   );
 
+  // 4. Rate Limiter (Baseline DoS protection)
+  app.use("/api", generalLimiter);
+
+  // 5. Better Auth Route Handler (Mounted BEFORE express.json() to preserve stream)
+  app.all("/api/auth/*", (req, res, next) => {
+    const path = req.path.replace("/api/auth", "");
+    // Fall through for custom endpoints that require express.json body parser
+    if (["/login", "/register", "/me", "/google", "/logout"].includes(path)) {
+      return next();
+    }
+    return toNodeHandler(getAuth())(req, res);
+  });
+
+  // 6. Request Body Parsers (Mounted after Better Auth stream handler)
+  app.use(express.json({ limit: "2mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+
+  // 7. Cookie Parser for HTTPOnly JWT sessions
+  app.use(cookieParser());
+
   // Health check endpoint
   app.get("/health", (_req, res) => {
     res.status(200).json({
       status: "healthy",
       service: "StudioSpace Backend API",
+      authEngine: "BetterAuth + MongoDB Adapter + JWT",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
@@ -81,8 +94,14 @@ export function createApp(): Express {
       name: "StudioSpace API",
       version: "1.0.0",
       description: "High-Performance Peer-to-Peer Marketplace API for Creative Spaces",
+      auth: {
+        engine: "BetterAuth",
+        adapter: "MongoDB Adapter",
+        token: "JWT Plugin",
+        endpoints: "/api/auth/* (sign-in, sign-up, sign-out, session, token)",
+      },
       endpoints: {
-        auth: "/api/auth (register, login, google, me, logout)",
+        auth: "/api/auth (better-auth, register, login, google, me, logout)",
         studios: "/api/studios (GET, POST, PUT, DELETE, /my-listings)",
         bookings: "/api/bookings (POST, /my-bookings, /studio/:id, /:id/cancel)",
         wishlist: "/api/wishlist (GET, /toggle)",
