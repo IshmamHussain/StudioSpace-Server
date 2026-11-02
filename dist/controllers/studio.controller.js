@@ -31,10 +31,12 @@ export async function getAllStudios(req, res) {
                 cursor = cursor.limit(limitNum);
             }
             const studios = await cursor.toArray();
+            const formatted = studios.map(s => ({ ...s, _id: s._id.toString() }));
             res.status(200).json({
                 success: true,
-                count: studios.length,
-                studios: studios.map(s => ({ ...s, _id: s._id.toString() })),
+                count: formatted.length,
+                studios: formatted,
+                data: formatted,
             });
             return;
         }
@@ -69,10 +71,37 @@ export async function getAllStudios(req, res) {
             success: true,
             count: filtered.length,
             studios: filtered,
+            data: filtered,
         });
     }
     catch (error) {
         res.status(500).json({ success: false, message: error.message || "Failed to fetch studios." });
+    }
+}
+export async function getFeaturedStudios(_req, res) {
+    try {
+        if (isDbConnected() && getDB()) {
+            const db = getDB();
+            const studios = await db.collection("studios").find({}).sort({ rating: -1 }).limit(6).toArray();
+            const formatted = studios.map(s => ({ ...s, _id: s._id.toString() }));
+            res.status(200).json({
+                success: true,
+                count: formatted.length,
+                studios: formatted,
+                data: formatted,
+            });
+            return;
+        }
+        const featured = inMemoryStore.studios.slice(0, 6);
+        res.status(200).json({
+            success: true,
+            count: featured.length,
+            studios: featured,
+            data: featured,
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message || "Failed to fetch featured studios." });
     }
 }
 export async function getStudioById(req, res) {

@@ -3,7 +3,8 @@ import { fromNodeHeaders } from "better-auth/node";
 import { getAuth } from "../config/auth.js";
 import { ENV } from "../config/env.js";
 export function signToken(payload) {
-    return jwt.sign(payload, ENV.JWT_SECRET, { expiresIn: "7d" });
+    const jwtFn = jwt?.sign ? jwt : jwt?.default || jwt;
+    return jwtFn.sign(payload, ENV.JWT_SECRET, { expiresIn: "7d", algorithm: "HS256" });
 }
 export function setAuthCookie(res, token) {
     const isProduction = ENV.NODE_ENV === "production";
@@ -69,8 +70,9 @@ export async function requireAuth(req, res, next) {
                 next();
                 return;
             }
-            // Standard fallback verification
-            const decoded = jwt.verify(token, ENV.JWT_SECRET);
+            // Standard fallback verification with fixed HS256 algorithm enforcement
+            const jwtFn = jwt?.verify ? jwt : jwt?.default || jwt;
+            const decoded = jwtFn.verify(token, ENV.JWT_SECRET, { algorithms: ["HS256"] });
             req.user = decoded;
             next();
             return;

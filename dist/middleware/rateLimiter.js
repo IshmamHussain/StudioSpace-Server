@@ -1,6 +1,15 @@
 import rateLimit from "express-rate-limit";
+const createRateLimiter = (options) => {
+    const limiterFn = typeof rateLimit === "function"
+        ? rateLimit
+        : rateLimit?.default || rateLimit?.rateLimit;
+    if (typeof limiterFn === "function") {
+        return limiterFn(options);
+    }
+    return (_req, _res, next) => next();
+};
 // General API Rate Limiter
-export const generalLimiter = rateLimit({
+export const generalLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 300, // Limit each IP to 300 requests per 15 minutes
     standardHeaders: true, // Return standard RateLimit-* headers
@@ -11,7 +20,7 @@ export const generalLimiter = rateLimit({
     },
 });
 // Authentication Rate Limiter (Protects against brute force and credential stuffing)
-export const authLimiter = rateLimit({
+export const authLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 25, // Limit each IP to 25 auth attempts per 15 minutes
     standardHeaders: true,
@@ -22,7 +31,7 @@ export const authLimiter = rateLimit({
     },
 });
 // Mutation Rate Limiter (Protects against automated spam bookings and listings)
-export const mutationLimiter = rateLimit({
+export const mutationLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 45, // Limit each IP to 45 mutations per 15 minutes
     standardHeaders: true,

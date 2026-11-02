@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getAllStudios,
+  getFeaturedStudios,
   getStudioById,
   createStudio,
   updateStudio,
@@ -15,6 +16,7 @@ const router = Router();
 
 // Public queries
 router.get("/", getAllStudios);
+router.get("/featured", getFeaturedStudios);
 router.get("/my-listings", requireAuth, getMyListings);
 router.get("/:id", getStudioById);
 

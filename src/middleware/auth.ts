@@ -14,7 +14,8 @@ declare global {
 }
 
 export function signToken(payload: AuthTokenPayload): string {
-  return jwt.sign(payload, ENV.JWT_SECRET, { expiresIn: "7d" });
+  const jwtFn = (jwt as any)?.sign ? (jwt as any) : (jwt as any)?.default || jwt;
+  return jwtFn.sign(payload, ENV.JWT_SECRET, { expiresIn: "7d", algorithm: "HS256" });
 }
 
 export function setAuthCookie(res: Response, token: string): void {
@@ -87,8 +88,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         return;
       }
 
-      // Standard fallback verification
-      const decoded = jwt.verify(token, ENV.JWT_SECRET) as AuthTokenPayload;
+      // Standard fallback verification with fixed HS256 algorithm enforcement
+      const jwtFn = (jwt as any)?.verify ? (jwt as any) : (jwt as any)?.default || jwt;
+      const decoded = jwtFn.verify(token, ENV.JWT_SECRET, { algorithms: ["HS256"] }) as AuthTokenPayload;
       req.user = decoded;
       next();
       return;
