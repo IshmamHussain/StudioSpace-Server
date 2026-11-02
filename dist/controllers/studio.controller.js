@@ -1,9 +1,25 @@
 import { ObjectId } from "mongodb";
 import { getDB, isDbConnected, inMemoryStore } from "../config/db.js";
+const studioCache = {};
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+export function invalidateStudioCache() {
+    for (const key of Object.keys(studioCache)) {
+        delete studioCache[key];
+    }
+}
 export async function getAllStudios(req, res) {
     try {
         const { category, search, limit, sort } = req.query;
         const limitNum = limit ? parseInt(limit, 10) : 0;
+        const cacheKey = `studios_${category || "all"}_${search || ""}_${sort || ""}_${limitNum}`;
+        // 1. Check in-memory server cache
+        const cached = studioCache[cacheKey];
+        if (cached && cached.expiresAt > Date.now()) {
+            res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+            res.setHeader("X-Server-Cache", "HIT");
+            res.status(200).json(cached.data);
+            return;
+        }
         if (isDbConnected() && getDB()) {
             const db = getDB();
             const query = {};
@@ -32,12 +48,20 @@ export async function getAllStudios(req, res) {
             }
             const studios = await cursor.toArray();
             const formatted = studios.map(s => ({ ...s, _id: s._id.toString() }));
-            res.status(200).json({
+            const payload = {
                 success: true,
                 count: formatted.length,
                 studios: formatted,
                 data: formatted,
-            });
+            };
+            // Save to memory cache
+            studioCache[cacheKey] = {
+                data: payload,
+                expiresAt: Date.now() + CACHE_TTL_MS,
+            };
+            res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+            res.setHeader("X-Server-Cache", "MISS");
+            res.status(200).json(payload);
             return;
         }
         // In-memory fallback
@@ -80,16 +104,31 @@ export async function getAllStudios(req, res) {
 }
 export async function getFeaturedStudios(_req, res) {
     try {
+        const cacheKey = "featured_studios_top6";
+        const cached = studioCache[cacheKey];
+        if (cached && cached.expiresAt > Date.now()) {
+            res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+            res.setHeader("X-Server-Cache", "HIT");
+            res.status(200).json(cached.data);
+            return;
+        }
         if (isDbConnected() && getDB()) {
             const db = getDB();
             const studios = await db.collection("studios").find({}).sort({ rating: -1 }).limit(6).toArray();
             const formatted = studios.map(s => ({ ...s, _id: s._id.toString() }));
-            res.status(200).json({
+            const payload = {
                 success: true,
                 count: formatted.length,
                 studios: formatted,
                 data: formatted,
-            });
+            };
+            studioCache[cacheKey] = {
+                data: payload,
+                expiresAt: Date.now() + CACHE_TTL_MS,
+            };
+            res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+            res.setHeader("X-Server-Cache", "MISS");
+            res.status(200).json(payload);
             return;
         }
         const featured = inMemoryStore.studios.slice(0, 6);
@@ -173,6 +212,7 @@ export async function createStudio(req, res) {
         if (isDbConnected() && getDB()) {
             const db = getDB();
             const result = await db.collection("studios").insertOne(newStudio);
+            invalidateStudioCache();
             res.status(201).json({
                 success: true,
                 message: "Studio listed successfully! Welcome to the StudioSpace host network.",
@@ -183,6 +223,7 @@ export async function createStudio(req, res) {
         const id = `studio_${Date.now()}`;
         const saved = { ...newStudio, _id: id };
         inMemoryStore.studios.unshift(saved);
+        invalidateStudioCache();
         res.status(201).json({
             success: true,
             message: "Studio listed successfully! Welcome to the StudioSpace host network.",
@@ -228,6 +269,7 @@ export async function updateStudio(req, res) {
             if (updates.maxCapacity)
                 updates.maxCapacity = Number(updates.maxCapacity);
             await db.collection("studios").updateOne(query, { $set: updates });
+            invalidateStudioCache();
             const updated = await db.collection("studios").findOne(query);
             res.status(200).json({
                 success: true,
@@ -288,6 +330,7 @@ export async function deleteStudio(req, res) {
                 return;
             }
             await db.collection("studios").deleteOne(query);
+            invalidateStudioCache();
             res.status(200).json({
                 success: true,
                 message: "Studio listing has been permanently removed from the marketplace.",
